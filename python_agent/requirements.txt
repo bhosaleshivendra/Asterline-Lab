@@ -10,6 +10,8 @@ langchain-chroma>=0.1.4
 
 langgraph>=0.2.0
 
+langgraph-checkpoint-sqlite>=2.0.0
+
 
 
 # Vector Store & Local Embeddings
