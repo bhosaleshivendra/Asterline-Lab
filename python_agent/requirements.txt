@@ -1,0 +1,35 @@
+# Core LangChain & LangGraph Framework
+
+langchain-core>=0.3.0
+
+langchain-google-genai>=2.0.0
+
+langchain-huggingface>=0.1.0
+
+langchain-chroma>=0.1.4
+
+langgraph>=0.2.0
+
+
+
+# Vector Store & Local Embeddings
+
+chromadb>=0.5.0
+
+sentence-transformers>=3.0.0
+
+
+
+# API Microservice & Validation
+
+fastapi>=0.110.0
+
+uvicorn[standard]>=0.28.0
+
+pydantic>=2.6.0
+
+
+
+# Environment Configuration
+
+python-dotenv>=1.0.1
