@@ -143,10 +143,13 @@ Respond with ONLY the single word ('MEMORY', 'RESEARCH', or 'DIRECT')."""),
     return {"security_violation": None, "user_intent": user_intent, "standalone_query": standalone}
 
 
+def guardrail_blocked_node(state: AgentState):
+    """Handles early termination for inputs blocked by security or guardrail checks."""
+    return {"messages": [AIMessage(content=state.get("security_violation", "Request blocked by security policy."))] }
+
+
 def memory_agent_node(state: AgentState):
     """Processes explicit user memory updates (STORE / UPDATE / FORGET / RESET)."""
-    if state.get("security_violation"):
-        return {}
     emp_id = state.get("emp_id", "default_user")
     latest_msg = extract_text_content(state["messages"][-1].content)
     clean_msg = sanitize_secret_keys(latest_msg)
@@ -156,8 +159,6 @@ def memory_agent_node(state: AgentState):
 
 def research_agent_node(state: AgentState):
     """Performs vector retrieval AND does a fast SQL lookup for context (<1ms)."""
-    if state.get("security_violation"):
-        return {}
     query = state.get("standalone_query") or extract_text_content(state["messages"][-1].content)
     emp_id = state.get("emp_id", "default_user")
 
@@ -173,9 +174,6 @@ def research_agent_node(state: AgentState):
 
 def synthesis_agent_node(state: AgentState):
     """Synthesizes final answer with strict grounding and temporal resolution."""
-    if state.get("security_violation"):
-        return {"messages": [AIMessage(content=state["security_violation"])]}
-
     latest_msg = extract_text_content(state["messages"][-1].content)
     retrieved_chunks = state.get("retrieved_chunks", "No relevant documentation found.")
     user_context = state.get("user_context", "No stored personal context.")
@@ -227,6 +225,7 @@ def route_intent(state: AgentState) -> Literal["blocked", "memory_branch", "rese
 workflow = StateGraph(AgentState)
 
 workflow.add_node("router_planner", router_planner_node)
+workflow.add_node("guardrail_blocked", guardrail_blocked_node)
 workflow.add_node("memory_agent", memory_agent_node)
 workflow.add_node("research_agent", research_agent_node)
 workflow.add_node("synthesis_agent", synthesis_agent_node)
@@ -237,12 +236,13 @@ workflow.add_conditional_edges(
     "router_planner",
     route_intent,
     {
-        "blocked": "synthesis_agent",
+        "blocked": "guardrail_blocked",
         "memory_branch": "memory_agent",
         "research_branch": "research_agent"
     }
 )
 
+workflow.add_edge("guardrail_blocked", END)
 workflow.add_edge("memory_agent", "synthesis_agent")
 workflow.add_edge("research_agent", "synthesis_agent")
 workflow.add_edge("synthesis_agent", END)
