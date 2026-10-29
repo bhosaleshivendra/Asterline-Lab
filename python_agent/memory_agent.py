@@ -11,7 +11,7 @@ load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"))
 
 
 class MemoryOperation(BaseModel):
-    action: str = Field(description="Action to perform: 'STORE', 'UPDATE', 'FORGET', or 'NO_OP'")
+    action: str = Field(description="Action to perform: 'STORE', 'UPDATE', 'FORGET', 'CLEAR', or 'NO_OP'")
     key: Optional[str] = Field(default=None, description="Attribute key (e.g., 'workspace_tier', 'region')")
     value: Optional[str] = Field(default=None, description="Attribute value (e.g., 'Enterprise', 'EU Dublin')")
 
@@ -37,6 +37,7 @@ class MemoryAgent:
 
         self._init_db()
 
+
     def _init_db(self):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -51,6 +52,13 @@ class MemoryAgent:
             """)
             conn.commit()
 
+    def clear_all(self, emp_id: str) -> None:
+        """Helper method to completely wipe memory context for a given employee ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM user_memories WHERE emp_id = ?", (emp_id,))
+            conn.commit()
+        
     def get_formatted_context(self, emp_id: str) -> str:
         """Fetches ONLY the active employee's stored memories from SQLite."""
         with sqlite3.connect(self.db_path) as conn:
@@ -73,9 +81,10 @@ Current Stored Context for User:
 {existing_context}
 
 Rules:
-1. Extract ALL requested operations (STORE, UPDATE, FORGET) into the operations list.
+1. Extract ALL requested operations (STORE, UPDATE, FORGET, CLEAR) into the operations list.
 2. Standardize atomic key names (e.g., 'workspace_tier', 'region', 'team_name').
-3. For FORGET actions, identify the target key name to delete (e.g., 'region')."""),
+3. For FORGET actions, identify the target key name to delete (e.g., 'region').
+4. For CLEAR actions (when user asks to wipe, reset, or delete all memory), output action='CLEAR'."""),
             ("human", "{message}")
         ])
 
@@ -111,6 +120,13 @@ Rules:
                         (emp_id, clean_key)
                     )
                     confirmations.append(f"Forgotten key '{clean_key}'")
+
+                elif op.action == "CLEAR":
+                    cursor.execute(
+                        "DELETE FROM user_memories WHERE emp_id = ?",
+                        (emp_id,)
+                    )
+                    confirmations.append("All stored memories cleared for user.")
             conn.commit()
 
         updated_context = self.get_formatted_context(emp_id)

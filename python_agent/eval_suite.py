@@ -14,6 +14,7 @@ class TestAsterlineAgent(unittest.TestCase):
         cls.memory = MemoryAgent()
         cls.user1 = "eval_user_01"
         cls.user2 = "eval_user_02"
+        # Reset user context cleanly before starting test execution
         cls.memory.clear_all(cls.user1)
         cls.memory.clear_all(cls.user2)
 
